@@ -1,0 +1,122 @@
+openapi: 3.1.0
+info:
+  title: Eve Choice Property Portal API
+  version: 0.1.0
+  description: Versioned REST API for property discovery and lead generation in Myanmar.
+servers:
+  - url: http://localhost:4000/api/v1
+tags:
+  - name: Health
+  - name: Discovery
+  - name: Auth
+  - name: Listings
+  - name: Engagement
+  - name: Moderation
+paths:
+  /health:
+    get:
+      tags: [Health]
+      responses:
+        '200': { description: Service is healthy }
+  /listings:
+    get:
+      tags: [Discovery]
+      summary: Search published listings
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: mode, in: query, schema: { type: string, enum: [SALE, RENT, WANTED] } }
+        - { name: location, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: minPrice, in: query, schema: { type: integer } }
+        - { name: maxPrice, in: query, schema: { type: integer } }
+        - { name: bedrooms, in: query, schema: { type: integer } }
+        - { name: sort, in: query, schema: { type: string, enum: [newest, price_asc, price_desc] } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: Paginated listing results
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedListings' }
+  /listings/{slug}:
+    get:
+      tags: [Discovery]
+      parameters: [{ name: slug, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Listing detail, content: { application/json: { schema: { $ref: '#/components/schemas/Listing' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /auth/register:
+    post:
+      tags: [Auth]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RegisterRequest' } } } }
+      responses: { '201': { description: Account created }, '400': { $ref: '#/components/responses/ValidationError' }, '409': { description: Email is already registered } }
+  /auth/login:
+    post:
+      tags: [Auth]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LoginRequest' } } } }
+      responses: { '200': { description: Authenticated session }, '401': { description: Invalid credentials } }
+  /listings/{id}/save:
+    post:
+      tags: [Engagement]
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '201': { description: Listing saved } }
+    delete:
+      tags: [Engagement]
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: Listing unsaved } }
+  /admin/review-queue:
+    get:
+      tags: [Moderation]
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Listings awaiting moderation } }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  responses:
+    ValidationError: { description: Invalid request }
+    NotFound: { description: Resource not found }
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        name: { type: string, minLength: 2 }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+    Listing:
+      type: object
+      required: [id, slug, title, mode, status, location, category]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        title: { type: string }
+        description: { type: string }
+        mode: { type: string, enum: [SALE, RENT, WANTED] }
+        status: { type: string }
+        price: { type: integer, nullable: true }
+        priceLabel: { type: string }
+        location: { type: string }
+        category: { type: string }
+        coverImage: { type: string, nullable: true }
+        amenities: { type: array, items: { type: string } }
+    PaginatedListings:
+      type: object
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Listing' } }
+        meta:
+          type: object
+          properties:
+            page: { type: integer }
+            pageSize: { type: integer }
+            total: { type: integer }
+            pageCount: { type: integer }
+

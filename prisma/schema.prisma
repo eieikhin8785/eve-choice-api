@@ -1,0 +1,289 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum LocationType {
+  CITY
+  TOWNSHIP
+  NEIGHBORHOOD
+}
+
+enum ListingMode {
+  SALE
+  RENT
+  WANTED
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+  SUSPENDED
+  SOLD_OR_RENTED
+  ARCHIVED
+}
+
+enum FurnishingStatus {
+  UNFURNISHED
+  PARTLY_FURNISHED
+  FULLY_FURNISHED
+}
+
+enum MediaStatus {
+  READY
+  PROCESSING
+  REMOVED
+}
+
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+enum ViewingStatus {
+  REQUESTED
+  CONFIRMED
+  DECLINED
+  COMPLETED
+  CANCELLED
+}
+
+enum ReportStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  DISMISSED
+}
+
+model User {
+  id                String        @id @default(cuid())
+  email             String        @unique
+  passwordHash      String
+  name              String
+  phone             String?
+  avatarUrl         String?
+  status            UserStatus    @default(ACTIVE)
+  emailVerifiedAt   DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  roles             UserRole[]
+  listings          Listing[]     @relation("CreatedListings")
+  assignedListings  Listing[]     @relation("AssignedListings")
+  savedListings     SavedListing[]
+  inquiriesSent     Inquiry[]     @relation("InquirySender")
+  inquiriesReceived Inquiry[]     @relation("InquiryRecipient")
+  viewingRequests   ViewingRequest[] @relation("ViewingRequester")
+  reports           Report[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+}
+
+model Role {
+  id          String     @id @default(cuid())
+  key         String     @unique
+  label       String
+  description String?
+  users       UserRole[]
+}
+
+model UserRole {
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  @@id([userId, roleId])
+}
+
+model Location {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  type        LocationType
+  parentId    String?
+  sortOrder   Int          @default(0)
+  active      Boolean      @default(true)
+  parent      Location?    @relation("LocationTree", fields: [parentId], references: [id])
+  children    Location[]   @relation("LocationTree")
+  listings    Listing[]
+}
+
+model PropertyCategory {
+  id          String             @id @default(cuid())
+  name        String
+  slug        String             @unique
+  description String?
+  sortOrder   Int                @default(0)
+  active      Boolean            @default(true)
+  parentId    String?
+  parent      PropertyCategory?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children    PropertyCategory[] @relation("CategoryTree")
+  listings    Listing[]
+}
+
+model Amenity {
+  id       String @id @default(cuid())
+  name     String
+  slug     String @unique
+  active   Boolean @default(true)
+  listings ListingAmenity[]
+}
+
+model Listing {
+  id                String           @id @default(cuid())
+  slug              String           @unique
+  title             String
+  description       String
+  mode              ListingMode
+  status            ListingStatus     @default(DRAFT)
+  price             Int?
+  currency          String           @default("MMK")
+  negotiable        Boolean          @default(false)
+  rentalPeriod      String?
+  floorArea         Float?
+  landArea          Float?
+  areaUnit          String           @default("sqft")
+  bedrooms          Int?
+  bathrooms         Int?
+  floors            Int?
+  floorNumber       Int?
+  furnishing        FurnishingStatus?
+  addressLine       String
+  landmark          String?
+  latitude          Float?
+  longitude         Float?
+  locationId        String
+  categoryId        String
+  createdById       String
+  assignedAgentId   String?
+  rejectionReason   String?
+  moderationNote    String?
+  publishedAt       DateTime?
+  submittedAt       DateTime?
+  soldOrRentedAt    DateTime?
+  archivedAt        DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  location          Location         @relation(fields: [locationId], references: [id])
+  category          PropertyCategory @relation(fields: [categoryId], references: [id])
+  createdBy         User             @relation("CreatedListings", fields: [createdById], references: [id])
+  assignedAgent     User?            @relation("AssignedListings", fields: [assignedAgentId], references: [id])
+  media             ListingMedia[]
+  amenities         ListingAmenity[]
+  savedBy           SavedListing[]
+  inquiries         Inquiry[]
+  viewingRequests   ViewingRequest[]
+  reports           Report[]
+  auditLogs         AuditLog[]
+  @@index([status, mode, locationId, categoryId])
+  @@index([price])
+}
+
+model ListingMedia {
+  id         String      @id @default(cuid())
+  listingId  String
+  url        String
+  altText    String?
+  caption    String?
+  sortOrder  Int         @default(0)
+  isCover    Boolean     @default(false)
+  status     MediaStatus @default(READY)
+  listing    Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+}
+
+model ListingAmenity {
+  listingId String
+  amenityId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  amenity   Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+  @@id([listingId, amenityId])
+}
+
+model SavedListing {
+  userId    String
+  listingId String
+  createdAt DateTime @default(now())
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  @@id([userId, listingId])
+}
+
+model Inquiry {
+  id            String        @id @default(cuid())
+  listingId     String
+  senderId      String
+  recipientId   String
+  message       String
+  phone         String?
+  status        InquiryStatus @default(NEW)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  listing       Listing       @relation(fields: [listingId], references: [id])
+  sender        User          @relation("InquirySender", fields: [senderId], references: [id])
+  recipient     User          @relation("InquiryRecipient", fields: [recipientId], references: [id])
+}
+
+model ViewingRequest {
+  id            String        @id @default(cuid())
+  listingId     String
+  requesterId   String
+  requestedDate DateTime
+  message       String?
+  status        ViewingStatus @default(REQUESTED)
+  resolution    String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  listing       Listing       @relation(fields: [listingId], references: [id])
+  requester     User          @relation("ViewingRequester", fields: [requesterId], references: [id])
+}
+
+model Report {
+  id          String       @id @default(cuid())
+  listingId   String?
+  reporterId  String
+  reason      String
+  details     String?
+  status      ReportStatus @default(OPEN)
+  resolution  String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  listing     Listing?     @relation(fields: [listingId], references: [id])
+  reporter    User         @relation(fields: [reporterId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  entityType String
+  entityId   String
+  action     String
+  metadata   String?
+  createdAt  DateTime @default(now())
+  actor      User     @relation(fields: [actorId], references: [id])
+  listing    Listing? @relation(fields: [entityId], references: [id])
+  @@index([entityType, entityId])
+}
+

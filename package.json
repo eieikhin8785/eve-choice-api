@@ -1,0 +1,43 @@
+{
+  "name": "property-portal-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build && node --watch dist/src/index.js",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/src/index.js",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:bootstrap": "node prisma/bootstrap.mjs",
+    "db:seed": "npm run build && node dist/prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/adapter-better-sqlite3": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "bcryptjs": "3.0.2",
+    "cors": "2.8.5",
+    "dotenv": "16.5.0",
+    "express": "5.1.0",
+    "jsonwebtoken": "9.0.2",
+    "zod": "4.1.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "7.6.13",
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.3",
+    "@types/jsonwebtoken": "9.0.10",
+    "@types/node": "24.3.0",
+    "better-sqlite3": "12.2.0",
+    "prisma": "7.10.0",
+    "tsx": "4.20.5",
+    "typescript": "5.9.2"
+  },
+  "allowScripts": {
+    "prisma@7.10.0": true,
+    "@prisma/engines@7.10.0": true,
+    "better-sqlite3@12.2.0": true,
+    "better-sqlite3@12.11.1": true
+  }
+}
+
